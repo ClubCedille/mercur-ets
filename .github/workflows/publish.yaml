@@ -57,7 +57,7 @@ jobs:
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
           build-args: |
-            MERCUR_BACKEND_URL=${{ inputs.mercur_backend_url }}
+            MERCUR_BACKEND_URL=${{ inputs.mercur_backend_url || vars.MERCUR_BACKEND_URL || 'https://api.mercur.etsmtl.club' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -101,7 +101,8 @@ jobs:
           tags: ${{ steps.meta-storefront.outputs.tags }}
           labels: ${{ steps.meta-storefront.outputs.labels }}
           build-args: |
-            MEDUSA_BACKEND_URL=${{ vars.MEDUSA_BACKEND_URL }}
-            NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL }}
+            MEDUSA_BACKEND_URL=${{ vars.MEDUSA_BACKEND_URL || 'https://api.mercur.etsmtl.club' }}
+            NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL || 'https://mercur.etsmtl.club' }}
+            NEXT_PUBLIC_VENDOR_URL=${{ vars.NEXT_PUBLIC_VENDOR_URL || 'https://api.mercur.etsmtl.club/seller' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -27,9 +27,9 @@ COPY apps/admin ./apps/admin
 COPY apps/vendor ./apps/vendor
 
 # Panels require backend origin baked at build time when NODE_ENV=production
-ARG MERCUR_BACKEND_URL="http://localhost:9000"
+ARG MERCUR_BACKEND_URL="https://api.mercur.etsmtl.club"
 ARG VITE_MERCUR_BACKEND_URL=""
-ENV MERCUR_BACKEND_URL=${MERCUR_BACKEND_URL}
+ENV MERCUR_BACKEND_URL=${MERCUR_BACKEND_URL:-https://api.mercur.etsmtl.club}
 ENV VITE_MERCUR_BACKEND_URL=${VITE_MERCUR_BACKEND_URL}
 ENV NODE_ENV=production
 
