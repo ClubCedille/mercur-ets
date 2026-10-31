@@ -8,7 +8,7 @@ export const sdk: InferClient<Routes> = createClient({
   baseUrl: MEDUSA_BACKEND_URL,
   fetchOptions: {
     headers: {
-      'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY as string,
+      'x-publishable-api-key': (process.env.MEDUSA_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY) as string,
     },
   },
 });

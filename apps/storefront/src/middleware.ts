@@ -5,8 +5,8 @@ import { PROTECTED_ROUTES } from './lib/constants';
 import { isTokenExpired } from './lib/helpers/token';
 
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL;
-const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY;
-const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || 'us';
+const PUBLISHABLE_API_KEY = process.env.MEDUSA_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY;
+const DEFAULT_REGION = process.env.DEFAULT_REGION || process.env.NEXT_PUBLIC_DEFAULT_REGION || 'de';
 
 const makeAuthRedirect = (
   req: NextRequest,
