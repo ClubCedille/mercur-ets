@@ -1,0 +1,181 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: mercur-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mercur
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mercur"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # 2. Redis (Event Bus & Workflows)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: mercur-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # 3. Database Migration (Runs Once and Exits)
+  # ============================================================================
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        MERCUR_BACKEND_URL: "http://localhost:9000"
+    container_name: mercur-migration
+    command: ["bun", "run", "predeploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/mercur?ssl_mode=disable
+      DATABASE_DRIVER_OPTIONS: '{"connection":{"ssl":false}}'
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+    restart: "no"
+
+  # ============================================================================
+  # 4. Mercur API Server (Backend + Admin UI + Vendor Portal)
+  # ============================================================================
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        MERCUR_BACKEND_URL: "http://localhost:9000"
+    container_name: mercur-api-server
+    restart: unless-stopped
+    command: ["bun", "run", "start"]
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 9000
+      MEDUSA_WORKER_MODE: server
+      DISABLE_MEDUSA_ADMIN: "false"
+
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/mercur?ssl_mode=disable
+      DATABASE_DRIVER_OPTIONS: '{"connection":{"ssl":false}}'
+      REDIS_URL: redis://redis:6379
+
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+
+      # CORS Configuration
+      STORE_CORS: "http://localhost:3000,http://localhost:8000,https://docs.medusajs.com"
+      ADMIN_CORS: "http://localhost:7000,http://localhost:9000"
+      VENDOR_CORS: "http://localhost:7001,http://localhost:9000"
+      AUTH_CORS: "http://localhost:3000,http://localhost:7000,http://localhost:7001,http://localhost:9000"
+
+      MERCUR_VENDOR_URL: "http://localhost:9000/seller"
+      STOREFRONT_REVALIDATE_URL: "http://localhost:3000"
+      STOREFRONT_REVALIDATE_SECRET: supersecret
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:9000/health').then(r => process.exit(r.ok ? 0 : 1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ============================================================================
+  # 5. Mercur API Worker (Background Subscribers & Jobs)
+  # ============================================================================
+  api-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        MERCUR_BACKEND_URL: "http://localhost:9000"
+    container_name: mercur-api-worker
+    restart: unless-stopped
+    command: ["bun", "run", "start"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      MEDUSA_WORKER_MODE: worker
+      DISABLE_MEDUSA_ADMIN: "true"
+
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/mercur?ssl_mode=disable
+      DATABASE_DRIVER_OPTIONS: '{"connection":{"ssl":false}}'
+      REDIS_URL: redis://redis:6379
+
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+
+  # ============================================================================
+  # 6. Storefront (Next.js Standalone)
+  # ============================================================================
+  storefront:
+    build:
+      context: .
+      dockerfile: Dockerfile.storefront
+      args:
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_04aa2d0c20462438979bf015b933edff39eb27948c2f8fe670cbadae7a1b7825"
+        MEDUSA_BACKEND_URL: "http://localhost:9000"
+        NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+        NEXT_PUBLIC_DEFAULT_REGION: "de"
+        NEXT_PUBLIC_VENDOR_URL: "http://localhost:9000/seller"
+    container_name: mercur-storefront
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-server:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      MEDUSA_PUBLISHABLE_KEY: "pk_04aa2d0c20462438979bf015b933edff39eb27948c2f8fe670cbadae7a1b7825"
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_04aa2d0c20462438979bf015b933edff39eb27948c2f8fe670cbadae7a1b7825"
+      MEDUSA_BACKEND_URL: "http://api-server:9000"
+      NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+      NEXT_PUBLIC_DEFAULT_REGION: "de"
+      NEXT_PUBLIC_SITE_NAME: "Mercur Marketplace"
+      NEXT_PUBLIC_SITE_DESCRIPTION: "Multi-vendor marketplace powered by Mercur"
+      NEXT_PUBLIC_VENDOR_URL: "http://localhost:9000/seller"
+
+volumes:
+  postgres_data:
+  redis_data:

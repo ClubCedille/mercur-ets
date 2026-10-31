@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "medusa build && node ./scripts/bundle-dashboards.mjs",
+    "predeploy": "medusa db:migrate",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "start": "medusa start",
     "dev": "medusa develop",
